@@ -17,8 +17,7 @@ void _handleMessage(RemoteMessage message) {
 }
 
 Future<http.Response> registerToken(
-    String fcmToken, String manufacturer, String model) {
-  // print(fcmToken);
+    String fcmToken, String manufacturer, String model, String androidId) {
   return http.post(
       Uri.parse(
           'https://tough-terminally-koala.ngrok-free.app/api/firebase/registerToken'),
@@ -26,8 +25,9 @@ Future<http.Response> registerToken(
         'Content-Type': 'application/json; charset=UTF-8'
       },
       body: jsonEncode(<String, String>{
-        'fcmToken': fcmToken,
-        'device': manufacturer + model,
+        'fcm_token': fcmToken,
+        'device_name': manufacturer + model,
+        'device_id': androidId,
       }));
 }
 
@@ -35,23 +35,42 @@ class FirebaseMessager {
   final _firebaseMessager = FirebaseMessaging.instance;
 
   Future<void> initNotification() async {
-    await _firebaseMessager.requestPermission();
-    final fcmToken = await _firebaseMessager.getToken();
+    // await _firebaseMessager.setAutoInitEnabled(true);
+    NotificationSettings settings = await _firebaseMessager.requestPermission(
+      alert: true,
+      announcement: true,
+      badge: true,
+      carPlay: true,
+      criticalAlert: true,
+      provisional: true,
+      sound: true,
+    );
 
-    String manufacturer = "";
-    String model = "";
+    print("Permission : ${settings.authorizationStatus}");
+    // print("Permission : ${settings.sound}");
+
+    //ios
+    // await _firebaseMessager.setForegroundNotificationPresentationOptions(
+    //   alert: true,
+    //   badge: true,
+    //   sound: true,
+    // );
+
+    final fcmToken = await _firebaseMessager.getToken();
 
     if (Platform.isAndroid) {
       DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
       AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
-      manufacturer = androidInfo.manufacturer;
-      model = androidInfo.model;
+      String manufacturer = androidInfo.manufacturer;
+      String model = androidInfo.model;
+      String androidId = androidInfo.androidId;
       print("\n");
       print('Device Name: ${androidInfo.manufacturer} ${androidInfo.model}');
+      print('Device Id: ${androidInfo.androidId}');
       print("\n");
+      await registerToken(fcmToken!, manufacturer, model, androidId);
     }
 
-    await registerToken(fcmToken!, manufacturer, model);
     print('Token: $fcmToken');
 
     FirebaseMessaging.onBackgroundMessage(handleBackgroundMessage);
